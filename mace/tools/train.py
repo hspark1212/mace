@@ -128,6 +128,7 @@ def train(
     distributed_model: Optional[DistributedDataParallel] = None,
     train_sampler: Optional[DistributedSampler] = None,
     rank: Optional[int] = 0,
+    freeze_model: Optional[torch.nn.Module] = None,
 ):
     lowest_loss = np.inf
     valid_loss = np.inf
@@ -141,10 +142,10 @@ def train(
         logging.info(f"Using gradient clipping with tolerance={max_grad_norm:.3f}")
     logging.info("Started training")
     epoch = start_epoch
-
     # # log validation loss before _any_ training
     param_context = ema.average_parameters() if ema is not None else nullcontext()
     with param_context:
+        # valid loss for interaction energy
         valid_loss, eval_metrics = evaluate(
             model=model,
             loss_fn=loss_fn,
@@ -152,6 +153,9 @@ def train(
             output_args=output_args,
             device=device,
         )
+        print("######epoch None #############")
+        print(valid_loss, eval_metrics)
+        print("###################")
         valid_err_log(valid_loss, eval_metrics, logger, log_errors, None)
 
     while epoch < max_num_epochs:
@@ -190,6 +194,7 @@ def train(
             device=device,
             distributed_model=distributed_model,
             rank=rank,
+            freeze_model=freeze_model,
         )
         if distributed:
             torch.distributed.barrier()
@@ -205,6 +210,7 @@ def train(
             if "ScheduleFree" in type(optimizer).__name__:
                 optimizer.eval()
             with param_context:
+                # valid loss for interaction energy
                 valid_loss, eval_metrics = evaluate(
                     model=model_to_evaluate,
                     loss_fn=loss_fn,
@@ -212,6 +218,9 @@ def train(
                     output_args=output_args,
                     device=device,
                 )
+                print("###################")
+                print(epoch, valid_loss, eval_metrics)
+                print("###################")
             if rank == 0:
                 valid_err_log(
                     valid_loss,
@@ -286,6 +295,7 @@ def train_one_epoch(
     device: torch.device,
     distributed_model: Optional[DistributedDataParallel] = None,
     rank: Optional[int] = 0,
+    freeze_model: Optional[torch.nn.Module] = None,
 ) -> None:
     model_to_train = model if distributed_model is None else distributed_model
     for batch in data_loader:
@@ -298,6 +308,7 @@ def train_one_epoch(
             output_args=output_args,
             max_grad_norm=max_grad_norm,
             device=device,
+            freeze_model=freeze_model,
         )
         opt_metrics["mode"] = "opt"
         opt_metrics["epoch"] = epoch
@@ -314,6 +325,7 @@ def take_step(
     output_args: Dict[str, bool],
     max_grad_norm: Optional[float],
     device: torch.device,
+    freeze_model: Optional[torch.nn.Module] = None,
 ) -> Tuple[float, Dict[str, Any]]:
     start_time = time.time()
     batch = batch.to(device)
@@ -327,6 +339,13 @@ def take_step(
         compute_stress=output_args["stress"],
     )
     loss = loss_fn(pred=output, ref=batch)
+    if freeze_model is not None:
+        ref_output = freeze_model(batch_dict, training=False)
+        ref_energy = ref_output["energy"].detach()
+        num_atoms = batch.ptr[1:] - batch.ptr[:-1]
+        ref_loss = torch.mean(torch.square((output["energy"] - ref_energy) / num_atoms))
+        print(f"loss: {loss}, ref_loss: {ref_loss}")
+        loss = loss + ref_loss
     loss.backward()
     if max_grad_norm is not None:
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=max_grad_norm)

@@ -172,6 +172,13 @@ def run(args: argparse.Namespace) -> None:
             for config in configs
             for z in config.atomic_numbers
         )
+    elif args.atomic_numbers.lower() == "foundation":
+        assert args.foundation_model is not None
+        logging.info("Using atomic numbers from foundation model")
+        z_table_foundation = AtomicNumberTable(
+            [int(z) for z in model_foundation.atomic_numbers]
+        )
+        z_table = z_table_foundation
     else:
         if args.statistics_file is None:
             logging.info("Using atomic numbers from command line argument")
@@ -287,7 +294,7 @@ def run(args: argparse.Namespace) -> None:
         generator=torch.Generator().manual_seed(args.seed),
     )
 
-    if args.loss == "weighted":
+    if args.loss == "weighted":  ##### Foundation model is weighted
         loss_fn = modules.WeightedEnergyForcesLoss(
             energy_weight=args.energy_weight, forces_weight=args.forces_weight
         )
@@ -697,6 +704,21 @@ def run(args: argparse.Namespace) -> None:
     else:
         distributed_model = None
 
+    # Freeze
+    if args.freeze_except_last_layer:
+        print("############## Freeze ##############")
+        for name, param in model.named_parameters():
+            if name.startswith("readouts.1.linear_2"):
+                param.requires_grad = True
+            else:
+                param.requires_grad = False
+            print(name, param.requires_grad)
+
+    if args.continual_learning:
+        freeze_model = deepcopy(model)
+        for param in freeze_model.parameters():
+            param.requires_grad = False
+
     tools.train(
         model=model,
         loss_fn=loss_fn,
@@ -722,6 +744,7 @@ def run(args: argparse.Namespace) -> None:
         distributed_model=distributed_model,
         train_sampler=train_sampler,
         rank=rank,
+        freeze_model=freeze_model if args.continual_learning else None,
     )
 
     logging.info("Computing metrics for training, validation, and test sets")
@@ -821,7 +844,9 @@ def run(args: argparse.Namespace) -> None:
                 ),
             }
             if swa_eval:
-                torch.save(model, Path(args.model_dir) / (args.name + "_stagetwo.model"))
+                torch.save(
+                    model, Path(args.model_dir) / (args.name + "_stagetwo.model")
+                )
                 try:
                     path_complied = Path(args.model_dir) / (
                         args.name + "_stagetwo_compiled.model"

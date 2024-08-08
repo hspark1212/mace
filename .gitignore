@@ -30,3 +30,13 @@ dist/
 /wandb
 /checkpoints
 *.model
+
+# DAC-sim
+demo*
+tmp*
+dataset/
+nohup*
+*.swp
+results*
+*.ipynb
+*.sh

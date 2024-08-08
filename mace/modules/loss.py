@@ -27,6 +27,18 @@ def weighted_mean_squared_error_energy(ref: Batch, pred: TensorDict) -> torch.Te
     )  # []
 
 
+def weighted_mean_absolute_error_energy(ref: Batch, pred: TensorDict) -> torch.Tensor:
+    # energy: [n_graphs, ]
+    configs_weight = ref.weight  # [n_graphs, ]
+    configs_energy_weight = ref.energy_weight  # [n_graphs, ]
+    num_atoms = ref.ptr[1:] - ref.ptr[:-1]  # [n_graphs,]
+    return torch.mean(
+        configs_weight
+        * configs_energy_weight
+        * torch.abs((ref["energy"] - pred["energy"]) / num_atoms)
+    )  # []
+
+
 def weighted_mean_squared_stress(ref: Batch, pred: TensorDict) -> torch.Tensor:
     # energy: [n_graphs, ]
     configs_weight = ref.weight.view(-1, 1, 1)  # [n_graphs, ]
@@ -66,6 +78,25 @@ def mean_squared_error_forces(ref: Batch, pred: TensorDict) -> torch.Tensor:
         configs_weight
         * configs_forces_weight
         * torch.square(ref["forces"] - pred["forces"])
+    )  # []
+
+
+def mean_absolute_error_forces(ref: Batch, pred: TensorDict) -> torch.Tensor:
+    # forces: [n_atoms, 3]
+    configs_weight = torch.repeat_interleave(
+        ref.weight, ref.ptr[1:] - ref.ptr[:-1]
+    ).unsqueeze(
+        -1
+    )  # [n_atoms, 1]
+    configs_forces_weight = torch.repeat_interleave(
+        ref.forces_weight, ref.ptr[1:] - ref.ptr[:-1]
+    ).unsqueeze(
+        -1
+    )  # [n_atoms, 1]
+    return torch.mean(
+        configs_weight
+        * configs_forces_weight
+        * torch.abs(ref["forces"] - pred["forces"])
     )  # []
 
 
@@ -160,9 +191,14 @@ class WeightedEnergyForcesLoss(torch.nn.Module):
         )
 
     def forward(self, ref: Batch, pred: TensorDict) -> torch.Tensor:
+        return self.energy_weight * weighted_mean_absolute_error_energy(
+            ref, pred
+        ) + self.forces_weight * mean_absolute_error_forces(ref, pred)
+        """
         return self.energy_weight * weighted_mean_squared_error_energy(
             ref, pred
         ) + self.forces_weight * mean_squared_error_forces(ref, pred)
+        """
 
     def __repr__(self):
         return (
