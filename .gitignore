@@ -38,6 +38,6 @@ dataset/
 nohup*
 *.swp
 results*
-*.ipynb
+# *.ipynb
 *.sh
 figures/
