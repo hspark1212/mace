@@ -1,5 +1,9 @@
 # <span style="font-size:larger;">MACE</span>
 
+This branch is designed to implement a continual learning loss term in the DAC-SIM project. The training bash script is provided [run_finetuning_continual.sh](run_finetuning_continual.sh)
+>[!NOTE]
+> --continual_learning=True will activate the continual learning loss
+
 [![GitHub release](https://img.shields.io/github/release/ACEsuit/mace.svg)](https://GitHub.com/ACEsuit/mace/releases/)
 [![Paper](https://img.shields.io/badge/Paper-NeurIPs2022-blue)](https://openreview.net/forum?id=YPpSngE-ZU)
 [![License](https://img.shields.io/badge/License-MIT%202.0-blue.svg)](https://opensource.org/licenses/mit)
@@ -13,13 +17,17 @@
   - [About MACE](#about-mace)
   - [Documentation](#documentation)
   - [Installation](#installation)
-    - [pip installation](#pip-installation)
-    - [conda installation](#conda-installation)
-    - [pip installation from source](#pip-installation-from-source)
+    - [1. Requirements](#1-requirements)
+    - [2a. Installation from PyPI](#2a-installation-from-pypi)
+    - [2b. Installation from source](#2b-installation-from-source)
   - [Usage](#usage)
     - [Training](#training)
+      - [Apple Silicon GPU acceleration](#apple-silicon-gpu-acceleration)
+      - [Multi-GPU training](#multi-gpu-training)
+      - [YAML configuration](#yaml-configuration)
     - [Evaluation](#evaluation)
   - [Tutorial](#tutorial)
+  - [On-line data loading for large datasets](#on-line-data-loading-for-large-datasets)
   - [Weights and Biases for experiment tracking](#weights-and-biases-for-experiment-tracking)
   - [Pretrained Foundation Models](#pretrained-foundation-models)
     - [MACE-MP: Materials Project Force Fields](#mace-mp-materials-project-force-fields)
@@ -46,11 +54,11 @@ Also available:
 
 ## Documentation
 
-A partial documentation is available at: https://mace-docs.readthedocs.io
+A partial documentation is available at: <https://mace-docs.readthedocs.io>
 
 ## Installation
 
-### 1. Requirements:
+### 1. Requirements
 
 - Python >= 3.7  (for openMM, use Python = 3.9)
 - [PyTorch](https://pytorch.org/) >= 1.12 **(training with float64 is not supported with PyTorch 2.1 but is supported with 2.2 and later)**
@@ -58,25 +66,22 @@ A partial documentation is available at: https://mace-docs.readthedocs.io
 **Make sure to install PyTorch.** Please refer to the [official PyTorch installation](https://pytorch.org/get-started/locally/) for the installation instructions. Select the appropriate options for your system.
 
 ### 2a. Installation from PyPI
-This is the recommended way to install MACE. 
+
+This is the recommended way to install MACE.
 
 ```sh
 pip install --upgrade pip
 pip install mace-torch
 ```
+
 **Note:** The homonymous package on [PyPI](https://pypi.org/project/MACE/) has nothing to do with this one.
 
-
 ### 2b. Installation from source
-
 
 ```sh
 git clone https://github.com/ACEsuit/mace.git
 pip install ./mace
 ```
-
-
-
 
 ## Usage
 
@@ -108,7 +113,7 @@ mace_run_train \
 
 To give a specific validation set, use the argument `--valid_file`. To set a larger batch size for evaluating the validation set, specify `--valid_batch_size`.
 
-To control the model's size, you need to change `--hidden_irreps`. For most applications, the recommended default model size is `--hidden_irreps='256x0e'` (meaning 256 invariant messages) or `--hidden_irreps='128x0e + 128x1o'`. If the model is not accurate enough, you can include higher order features, e.g., `128x0e + 128x1o + 128x2e`, or increase the number of channels to `256`. It is also possible to specify the model using the     `--num_channels=128` and `--max_L=1`keys. 
+To control the model's size, you need to change `--hidden_irreps`. For most applications, the recommended default model size is `--hidden_irreps='256x0e'` (meaning 256 invariant messages) or `--hidden_irreps='128x0e + 128x1o'`. If the model is not accurate enough, you can include higher order features, e.g., `128x0e + 128x1o + 128x2e`, or increase the number of channels to `256`. It is also possible to specify the model using the     `--num_channels=128` and `--max_L=1`keys.
 
 It is usually preferred to add the isolated atoms to the training set, rather than reading in their energies through the command line like in the example above. To label them in the training set, set `config_type=IsolatedAtom` in their info fields. If you prefer not to use or do not know the energies of the isolated atoms, you can use the option `--E0s="average"` which estimates the atomic energies using least squares regression.
 
@@ -149,6 +154,7 @@ config_type_weights:
   Default: 1.0
 
 ```
+
 And append to the command line `--config="your_configs.yaml"`. Any argument specified in the command line will overwrite the one in the YAML file.
 
 ### Evaluation
@@ -166,7 +172,7 @@ mace_eval_configs \
 
 You can run our [Colab tutorial](https://colab.research.google.com/drive/1D6EtMUjQPey_GkuxUAbPgld6_9ibIa-V?authuser=1#scrollTo=Z10787RE1N8T) to quickly get started with MACE.
 
-We also have a more detailed user and developer tutorial at https://github.com/ilyes319/mace-tutorials
+We also have a more detailed user and developer tutorial at <https://github.com/ilyes319/mace-tutorials>
 
 ## On-line data loading for large datasets
 
@@ -224,19 +230,19 @@ pip install ./mace[wandb]
 
 And specify the necessary keyword arguments (`--wandb`, `--wandb_project`, `--wandb_entity`, `--wandb_name`, `--wandb_log_hypers`)
 
-
 ## Pretrained Foundation Models
 
 ### MACE-MP: Materials Project Force Fields
 
 We have collaborated with the Materials Project (MP) to train a universal MACE potential covering 89 elements on 1.6 M bulk crystals in the [MPTrj dataset](https://figshare.com/articles/dataset/23713842) selected from MP relaxation trajectories.
-The models are releaed on GitHub at https://github.com/ACEsuit/mace-mp.
+The models are releaed on GitHub at <https://github.com/ACEsuit/mace-mp>.
 If you use them please cite [our paper](https://arxiv.org/abs/2401.00096) which also contains an large range of example applications and benchmarks.
 
 > [!CAUTION]
 > The MACE-MP models are trained on MPTrj raw DFT energies from VASP outputs, and are not directly comparable to the MP's DFT energies or CHGNet's energies, which have been applied MP2020Compatibility corrections for some transition metal oxides, fluorides (GGA/GGA+U mixing corrections), and 14 anions species (anion corrections). For more details, please refer to the [MP Documentation](https://docs.materialsproject.org/methodology/materials-methodology/thermodynamic-stability/thermodynamic-stability/anion-and-gga-gga+u-mixing) and [MP2020Compatibility.yaml](https://github.com/materialsproject/pymatgen/blob/master/pymatgen/entries/MP2020Compatibility.yaml).
 
 #### Example usage in ASE
+
 ```py
 from mace.calculators import mace_mp
 from ase import build
@@ -250,10 +256,11 @@ print(atoms.get_potential_energy())
 ### MACE-OFF: Transferable Organic Force Fields
 
 There is a series (small, medium, large) transferable organic force fields. These can be used for the simulation of organic molecules, crystals and molecular liquids, or as a starting point for fine-tuning on a new dataset. The models are released under the [ASL license](https://github.com/gabor1/ASL).
-The models are releaed on GitHub at https://github.com/ACEsuit/mace-off.
+The models are releaed on GitHub at <https://github.com/ACEsuit/mace-off>.
 If you use them please cite [our paper](https://arxiv.org/abs/2312.15211) which also contains detailed benchmarks and example applications.
 
 #### Example usage in ASE
+
 ```py
 from mace.calculators import mace_off
 from ase import build
@@ -289,7 +296,8 @@ mace_run_train \
   --device=cuda \
   --seed=3 
 ```
-Other options are "medium" and "large", or the path to a foundation model. 
+
+Other options are "medium" and "large", or the path to a foundation model.
 If you want to finetune another model, the model will be loaded from the path provided `--foundation_model=$path_model`, but you will need to provide the full set of hyperparameters (hidden irreps, r_max, etc.) matching the model.
 
 ## Development
@@ -298,10 +306,12 @@ This project uses [pre-commit](https://pre-commit.com/) to execute code formatti
 We also use `black`, `isort`, `pylint`, and `mypy`.
 We recommend setting up your development environment by installing the `dev` packages
 into your python environment:
+
 ```bash
 pip install -e ".[dev]"
 pre-commit install
 ```
+
 The second line will initialise `pre-commit` to automaticaly run code checks on commit.
 We have CI set up to check this, but we _highly_ recommend that you run those commands
 before you commit (and push) to avoid accidentally committing bad code.
@@ -336,7 +346,7 @@ If you use this code, please cite our papers:
 
 ## Contact
 
-If you have any questions, please contact us at ilyes.batatia@ens-paris-saclay.fr.
+If you have any questions, please contact us at <ilyes.batatia@ens-paris-saclay.fr>.
 
 For bugs or feature requests, please use [GitHub Issues](https://github.com/ACEsuit/mace/issues).
 

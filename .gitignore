@@ -34,10 +34,9 @@ dist/
 # DAC-sim
 demo*
 tmp*
-dataset/
+dataset/0_raw/
 nohup*
 *.swp
 results*
-# *.ipynb
-*.sh
+*.ipynb
 figures/
