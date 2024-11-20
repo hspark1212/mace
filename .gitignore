@@ -40,3 +40,4 @@ nohup*
 results*
 *.ipynb
 *.sh
+figures/

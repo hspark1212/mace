@@ -191,14 +191,9 @@ class WeightedEnergyForcesLoss(torch.nn.Module):
         )
 
     def forward(self, ref: Batch, pred: TensorDict) -> torch.Tensor:
-        return self.energy_weight * weighted_mean_absolute_error_energy(
-            ref, pred
-        ) + self.forces_weight * mean_absolute_error_forces(ref, pred)
-        """
         return self.energy_weight * weighted_mean_squared_error_energy(
             ref, pred
         ) + self.forces_weight * mean_squared_error_forces(ref, pred)
-        """
 
     def __repr__(self):
         return (

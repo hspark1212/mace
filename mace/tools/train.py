@@ -341,9 +341,31 @@ def take_step(
     loss = loss_fn(pred=output, ref=batch)
     if freeze_model is not None:
         ref_output = freeze_model(batch_dict, training=False)
+        # mse_energy
+        configs_weight = batch.weight
+        configs_energy_weight = batch.energy_weight
         ref_energy = ref_output["energy"].detach()
         num_atoms = batch.ptr[1:] - batch.ptr[:-1]
-        ref_loss = torch.mean(torch.square((output["energy"] - ref_energy) / num_atoms))
+        ref_loss_e = torch.mean(
+            configs_weight
+            * configs_energy_weight
+            * torch.square((output["energy"] - ref_energy) / num_atoms)
+        )
+        # mse_forces
+        ref_forces = ref_output["forces"].detach()
+        configs_weight = torch.repeat_interleave(
+            batch.weight, batch.ptr[1:] - batch.ptr[:-1]
+        ).unsqueeze(-1)
+        configs_forces_weight = torch.repeat_interleave(
+            batch.forces_weight, batch.ptr[1:] - batch.ptr[:-1]
+        ).unsqueeze(-1)
+        ref_loss_f = torch.mean(
+            configs_weight
+            * configs_forces_weight
+            * torch.square((output["forces"] - ref_forces))
+        )
+        ref_loss = ref_loss_e + ref_loss_f
+
         print(f"loss: {loss}, ref_loss: {ref_loss}")
         loss = loss + ref_loss
     loss.backward()
